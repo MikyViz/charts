@@ -7,7 +7,8 @@ import {
     fetchPerformancePercentage, 
     fetchPlannedTrips, 
     fetchLinePerformanceDetails, 
-    fetchPlannedChanges 
+    fetchPlannedChanges,
+    fetchTripsPerformanceDetails
 } from "../../services/charts-api";
 
 export const Charts = () => {
@@ -65,7 +66,8 @@ export const Charts = () => {
                     fetchPerformancePercentage(apiFilters, authData),
                     fetchPlannedTrips(apiFilters, authData),
                     fetchLinePerformanceDetails(apiFilters, authData),
-                    fetchPlannedChanges(apiFilters, authData)
+                    fetchPlannedChanges(apiFilters, authData),
+                    fetchTripsPerformanceDetails(apiFilters, authData)
                 ]);
                 
                 // Извлекаем данные или null для каждого запроса
@@ -74,6 +76,7 @@ export const Charts = () => {
                 const plannedTripsData = results[2].status === 'fulfilled' ? results[2].value : null;
                 const linePerformanceData = results[3].status === 'fulfilled' ? results[3].value : null;
                 const plannedChangesData = results[4].status === 'fulfilled' ? results[4].value : null;
+                const tripsPerformanceDetailsData = results[5].status === 'fulfilled' ? results[5].value : null;
                 
                 console.log('Получены данные от API:');
                 console.log('planVsPerformanceData:', planVsPerformanceData);
@@ -81,6 +84,7 @@ export const Charts = () => {
                 console.log('plannedTripsData:', plannedTripsData);
                 console.log('linePerformanceData:', linePerformanceData);
                 console.log('plannedChangesData:', plannedChangesData);
+                console.log('tripsPerformanceDetailsData:', tripsPerformanceDetailsData);
                 
                 if (isMounted) {
                     // Преобразуем имеющиеся данные в графики
@@ -89,7 +93,8 @@ export const Charts = () => {
                         performancePercentageData, 
                         plannedTripsData, 
                         linePerformanceData, 
-                        plannedChangesData
+                        plannedChangesData,
+                        tripsPerformanceDetailsData
                     );
                     
                     if (charts.length === 0) {
@@ -108,7 +113,8 @@ export const Charts = () => {
                                 'TripsPlannedVSPerformedPercentage', 
                                 'TripsPlanned', 
                                 'PerformanceDetailsForLine', 
-                                'TripsPlannedChanges'
+                                'TripsPlannedChanges',
+                                'TripsPerformanceDetails'
                             ];
                             console.error(`Ошибка при запросе ${endpoints[index]}:`, result.reason);
                         }
@@ -153,7 +159,8 @@ export const Charts = () => {
         performancePercentageData, 
         plannedTripsData, 
         linePerformanceData, 
-        plannedChangesData
+        plannedChangesData,
+        tripsPerformanceDetailsData
     ) => {
         const charts = [];
         
@@ -372,33 +379,33 @@ export const Charts = () => {
         }
         
         // 5. График "איחורים / הקדמות לתקופה" (Опоздания/опережения за период)
-        if (linePerformanceData && linePerformanceData.length > 0) {
-            // Агрегируем данные по задержкам
+        if (tripsPerformanceDetailsData && tripsPerformanceDetailsData.length > 0) {
+            console.log('Начало обработки данных для графика "איחורים / הקדמות לתקופה"');
+            
+            // Создаем объект для хранения сумм по категориям
             const delayCategories = {
-                "הקדמה 3 דקות ומעלה": 0,   // Опережение на 3 минуты и более
-                "הקדמה עד 2 דקות": 0,      // Опережение до 2 минут
-                "עד 5 דקות": 0,            // До 5 минут
-                "6-10 דקות": 0,            // 6-10 минут
-                "11-20 דקות": 0,           // 11-20 минут
-                "מעל 20 דקות": 0,          // Более 20 минут
-                "לא בוצע": 0               // Не выполнено
+                "הקדמה 3 דקות ומעלה": 0,   // Опережение на 3+ минуты (EarlyMoreThan2Minutes)
+                "הקדמה עד 2 דקות": 0,      // Опережение до 2 минут (EarlyUpTo2Minutes)
+                "עד 5 דקות": 0,            // Вовремя или опоздание до 5 минут (OnTime + LateUpTo5Minutes)
+                "6-10 דקות": 0,            // 6-10 минут (Late6To10Minutes)
+                "11-20 דקות": 0,           // 11-20 минут (Late11To20Minutes)
+                "מעל 20 דקות": 0,          // Более 20 минут (LateOver20Minutes)
+                "לא בוצע": 0               // Не выполнено (UnPerformed)
             };
             
-            // Заполняем данные из linePerformanceData
-            linePerformanceData.forEach(item => {
-                if (item.Delay <= -3) delayCategories["הקדמה 3 דקות ומעלה"]++;
-                else if (item.Delay < 0) delayCategories["הקדמה עד 2 דקות"]++;
-                else if (item.Delay <= 5) delayCategories["עד 5 דקות"]++;
-                else if (item.Delay <= 10) delayCategories["6-10 דקות"]++;
-                else if (item.Delay <= 20) delayCategories["11-20 דקות"]++;
-                else if (item.Delay > 20) delayCategories["מעל 20 דקות"]++;
-                else if (item.Status === "NotPerformed") delayCategories["לא בוצע"]++;
+            // Суммируем значения по всем дням
+            tripsPerformanceDetailsData.forEach(dayData => {
+                delayCategories["הקדמה 3 דקות ומעלה"] += dayData.EarlyMoreThan2Minutes || 0;
+                delayCategories["הקדמה עד 2 דקות"] += dayData.EarlyUpTo2Minutes || 0;
+                delayCategories["עד 5 דקות"] += (dayData.OnTime || 0) + (dayData.LateUpTo5Minutes || 0);
+                delayCategories["6-10 דקות"] += dayData.Late6To10Minutes || 0;
+                delayCategories["11-20 דקות"] += dayData.Late11To20Minutes || 0;
+                delayCategories["מעל 20 דקות"] += dayData.LateOver20Minutes || 0;
+                delayCategories["לא בוצע"] += dayData.UnPerformed || 0;
             });
-            console.log(`вот бро, задержкоЧарт: ${delayCategories}`);
-            
             
             const delayChartData = [
-                ["Категория", "Значение"],
+                ["קטגוריה", "ערך"],
                 ...Object.entries(delayCategories).map(([key, value]) => [key, value])
             ];
             
