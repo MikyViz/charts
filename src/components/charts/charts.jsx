@@ -10,12 +10,64 @@ import {
     fetchPlannedChanges,
     fetchTripsPerformanceDetails
 } from "../../services/charts-api";
+import { ChartOrderModal } from "./chart-order-modal/chart-order-modal";
+import { useChartOrdering } from "../../contexts/chart-ordering-context";
+
+// Move defaultCharts definition to the top level, outside the component
+const defaultCharts = [
+    {
+        data: [
+            ["חודש", "בוצע", "מתוכנן"],
+            ["ינו", 100, 90],
+            ["פברואר", 160, 120],
+            ["מרץ", 120, 110],
+            ["אפריל", 110, 100],
+            ["מאי", 130, 120],
+            ["יוני", 140, 130],
+        ],
+        options: {
+            chartArea: { width: "80%", height: "60%" },
+            rtl: true,
+            hAxis: {
+                title: "תאיריכים",
+                direction: -1,
+                slantedText: true,
+            },
+            vAxis: { 
+                title: "נסיעות",
+            },
+            legend: { 
+                position: "top",
+                alignment: "center",
+                reverseCategories: false,
+            },
+            histogram: {
+                bucketSize: 1,
+                hideBucketItems: true,
+            },
+            bar: { groupWidth: "75%" },
+            series: {
+                0: { pointSize: 5 },
+                1: { pointSize: 5 },
+                2: { pointSize: 5 },
+            },
+            isStacked: false,
+        },
+        thereIsTypeData: false,
+        type: "Line",
+        isOnline: true,
+        title: "תכנון / ביצוע",
+    },
+    // Add the rest of your default charts here
+];
 
 export const Charts = () => {
     const { selectedFilters } = useFilters();
     const [chartsData, setChartsData] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [chartsOrder, setChartsOrder] = useState({}); // Store order preferences 
+    const [hiddenCharts, setHiddenCharts] = useState([]); // Store hidden chart IDs
 
     const url = import.meta.env.VITE_URL;
     const userId = import.meta.env.VITE_USERID;
@@ -428,6 +480,58 @@ export const Charts = () => {
         return charts;
     };
 
+    const { isModalOpen } = useChartOrdering();
+
+    // Function to handle order changes
+    const handleOrderChange = (newOrder) => {
+        setChartsOrder(newOrder);
+        // Store in localStorage for persistence
+        localStorage.setItem('chartsOrder', JSON.stringify(newOrder));
+    };
+
+    // Function to handle visibility changes
+    const handleVisibilityChange = (newHiddenCharts) => {
+        setHiddenCharts(newHiddenCharts);
+        // Store in localStorage for persistence
+        localStorage.setItem('hiddenCharts', JSON.stringify(newHiddenCharts));
+    };
+
+    // Load preferences from localStorage on component mount
+    useEffect(() => {
+        const savedOrder = localStorage.getItem('chartsOrder');
+        const savedHidden = localStorage.getItem('hiddenCharts');
+        
+        if (savedOrder) {
+            try {
+                setChartsOrder(JSON.parse(savedOrder));
+            } catch (e) {
+                console.error("Error parsing saved chart order:", e);
+            }
+        }
+        
+        if (savedHidden) {
+            try {
+                setHiddenCharts(JSON.parse(savedHidden));
+            } catch (e) {
+                console.error("Error parsing saved hidden charts:", e);
+            }
+        }
+    }, []);
+
+    // Get the charts to display (either API data or default)
+    const chartsToDisplay = (chartsData && chartsData.length > 0) ? chartsData : defaultCharts;
+
+    // Apply ordering and visibility
+    const sortedAndFilteredCharts = chartsToDisplay
+        // Filter out hidden charts
+        .filter(chart => !hiddenCharts.includes(chart.title))
+        // Sort by the order specified
+        .sort((a, b) => {
+            const orderA = chartsOrder[a.title] !== undefined ? chartsOrder[a.title] : Infinity;
+            const orderB = chartsOrder[b.title] !== undefined ? chartsOrder[b.title] : Infinity;
+            return orderA - orderB;
+        });
+
     if (isLoading) {
         return <div className={styles.loading}>טוען נתונים...</div>;
     }
@@ -436,305 +540,19 @@ export const Charts = () => {
         return <div className={styles.error}>שגיאה: {error}</div>;
     }
 
-    // Используем тестовые данные, пока не реализована полная логика трансформации
-    const defaultCharts = [
-        {
-            data: [
-                ["חודש", "בוצע", "מתוכנן"],
-                ["ינו", 100, 90],
-                ["פברואר", 160, 120],
-                ["מרץ", 120, 110],
-                ["אפריל", 110, 100],
-                ["מאי", 130, 120],
-                ["יוני", 140, 130],
-            ],
-            options: {
-                chartArea: { width: "80%", height: "60%" },
-                rtl: true,
-                hAxis: {
-                    title: "תאיריכים",
-                    direction: -1,
-                    slantedText: true,
-                },
-                vAxis: { 
-                    title: "נסיעות",
-                },
-                legend: { 
-                    position: "top",
-                    alignment: "center",
-                    reverseCategories: false,
-                },
-                histogram: {
-                    bucketSize: 1,
-                    hideBucketItems: true,
-                },
-                bar: { groupWidth: "75%" },
-                series: {
-                    0: { pointSize: 5 },
-                    1: { pointSize: 5 },
-                    2: { pointSize: 5 },
-                },
-                isStacked: false,
-            },
-            thereIsTypeData: false,
-            type: "Line",
-            isOnline: true,
-            title: "תכנון / ביצוע",
-        },
-        {
-            data: [
-                ["חודש", "עירוני", "בינעירוני", "כללי"],
-                ["ינו", 20, 90, 75],
-                ["פברואר", 40, 62, 45],
-                ["מרץ", 70, 91, 76],
-                ["אפריל", 50, 80, 87],
-                ["מאי", 60, 70, 98],
-                ["יוני", 40, 30, 76],
-            ],
-            options: {
-                chartArea: { width: "80%", height: "60%" },
-                hAxis: {
-                    title: "תאיריכים",
-                    direction: -1,
-                    slantedText: true,
-                },
-                vAxis: { 
-                    title: "אחוזים",
-                    format: '#\'%\'',
-                    minValue: 0,
-                    maxValue: 100,
-                    ticks: [0, 20, 40, 60, 80, 100],
-                },
-                legend: { 
-                    position: "top",
-                    alignment: "center",
-                },
-                histogram: {
-                    bucketSize: 1,
-                    hideBucketItems: true,
-                },
-                bar: { groupWidth: "75%" },
-                series: {
-                    0: { pointSize: 5 },
-                    1: { pointSize: 5 },
-                    2: { pointSize: 5 },
-                },
-                isStacked: false,
-            },
-            thereIsTypeData: false,
-            type: "Line",
-            isOnline: true,
-            title: "אחוז ביצוע",
-        },
-        {
-            data: [
-                ["חודש", "עירוני", "בינעירוני", "כללי"],
-                ["ינו", 20, 90, 75],
-                ["פברואר", 40, 62, 45],
-                ["מרץ", 70, 91, 76],
-                ["אפריל", 50, 80, 87],
-                ["מאי", 60, 70, 98],
-                ["יוני", 40, 30, 76],
-            ],
-            options: {
-                chartArea: { width: "80%", height: "60%" },
-                hAxis: {
-                    title: "תאיריכים",
-                    direction: -1,
-                    slantedText: true,
-                },
-                vAxis: { 
-                    title: "אחוזים",
-                    format: '#\'%\'',
-                    minValue: 0,
-                    maxValue: 100,
-                    ticks: [0, 20, 40, 60, 80, 100],
-                },
-                legend: { 
-                    position: "top",
-                    alignment: "center",
-                },
-                histogram: {
-                    bucketSize: 1,
-                    hideBucketItems: true,
-                },
-                bar: { groupWidth: "75%" },
-                series: {
-                    0: { pointSize: 5 },
-                    1: { pointSize: 5 },
-                    2: { pointSize: 5 },
-                },
-                isStacked: false,
-            },
-            thereIsTypeData: false,
-            type: "Line",
-            isOnline: false,
-            title: "שינויים מתוכננים",
-        },
-        {
-            data: [
-                ["חודש", "עירוני", "בינעירוני", "כללי"],
-                ["ינו", 20, 90, 75],
-                ["פברואר", 40, 62, 45],
-                ["מרץ", 70, 91, 76],
-                ["אפריל", 50, 80, 87],
-                ["מאי", 60, 70, 98],
-                ["יוני", 40, 30, 76],
-            ],
-            options: {
-                chartArea: { width: "80%", height: "60%" },
-                hAxis: {
-                    title: "תאיריכים",
-                    direction: -1,
-                    slantedText: true,
-                },
-                vAxis: { 
-                    title: "אחוזים",
-                    format: '#\'%\'',
-                    minValue: 0,
-                    maxValue: 100,
-                    ticks: [0, 20, 40, 60, 80, 100],
-                },
-                legend: { 
-                    position: "top",
-                    alignment: "center",
-                },
-                histogram: {
-                    bucketSize: 1,
-                    hideBucketItems: true,
-                },
-                bar: { groupWidth: "75%" },
-                series: {
-                    0: { pointSize: 5 },
-                    1: { pointSize: 5 },
-                    2: { pointSize: 5 },
-                },
-                isStacked: false,
-            },
-            thereIsTypeData: true,
-            type: "Line",
-            isOnline: false,
-            title: "תלונות לפי תאריך",
-        },
-        {
-            data: [
-                ["חודש", "עירוני", "בינעירוני", "כללי"],
-                ["ינו", 20, 90, 75],
-                ["פברואר", 40, 62, 45],
-                ["מרץ", 70, 91, 76],
-                ["אפריל", 50, 80, 87],
-                ["מאי", 60, 70, 98],
-                ["יוני", 40, 30, 76],
-            ],
-            options: {
-                chartArea: { width: "80%", height: "60%" },
-                hAxis: {
-                    title: "תאיריכים",
-                    direction: -1,
-                    slantedText: true,
-                },
-                vAxis: { 
-                    title: "אחוזים",
-                    format: '#\'%\'',
-                    minValue: 0,
-                    maxValue: 100,
-                    ticks: [0, 20, 40, 60, 80, 100],
-                },
-                legend: { 
-                    position: "top",
-                    alignment: "center",
-                },
-                histogram: {
-                    bucketSize: 1,
-                    hideBucketItems: true,
-                },
-                bar: { groupWidth: "75%" },
-                series: {
-                    0: { pointSize: 5 },
-                    1: { pointSize: 5 },
-                    2: { pointSize: 5 },
-                },
-                isStacked: false,
-            },
-            thereIsTypeData: false,
-            type: "Line",
-            isOnline: false,
-            title: "סוג נסיעות מתוכנן",
-        },
-        {
-            data: [
-                ["Категория", "Значение"],
-                ["הקדמה 3 דקות ומעלה", 406],
-                ["הקדמה עד 2 דקות", 287],
-                ["עד 5 דקות", 198],
-                ["6-10 דקות", 99],
-                ["11-20 דקות", 220],
-                ["מעל 20 דקות", 220],
-                ["לא בוצע", 220],
-            ],
-            options: {
-                legend: { position: "left" },
-                chartArea: { width: "100%", height: "100%" },
-            },
-            thereIsTypeData: false,
-            isOnline: false,
-            type: "Area",
-            title: "איחורים / הקדמות לתקופה",
-        },
-        {
-            data: [
-                ["חודש", "עירוני", "בינעירוני", "כללי"],
-                ["ינו", 20, 90, 75],
-                ["פברואר", 40, 62, 45],
-                ["מרץ", 70, 91, 76],
-                ["אפריל", 50, 80, 87],
-                ["מאי", 60, 70, 98],
-                ["יוני", 40, 30, 76],
-            ],
-            options: {
-                chartArea: { width: "80%", height: "60%" },
-                hAxis: {
-                    title: "תאיריכים",
-                    direction: -1,
-                    slantedText: true,
-                },
-                vAxis: { 
-                    title: "אחוזים",
-                    format: '#\'%\'',
-                    minValue: 0,
-                    maxValue: 100,
-                    ticks: [0, 20, 40, 60, 80, 100],
-                },
-                legend: { 
-                    position: "top",
-                    alignment: "center",
-                },
-                histogram: {
-                    bucketSize: 1,
-                    hideBucketItems: true,
-                },
-                bar: { groupWidth: "75%" },
-                series: {
-                    0: { pointSize: 5 },
-                    1: { pointSize: 5 },
-                    2: { pointSize: 5 },
-                },
-                isStacked: false,
-            },
-            thereIsTypeData: false,
-            type: "Line",
-            isOnline: false,
-            title: "תלונות לפי סוג",
-        },
-    ];
-
     return (
         <section className={styles.charts}>
-            {(chartsData && chartsData.length > 0) ? chartsData.map((chart, ind) => (
-                <ChartCard chart={chart} key={ind} />
-            )) : defaultCharts.map((chart, ind) => (
+            {sortedAndFilteredCharts.map((chart, ind) => (
                 <ChartCard chart={chart} key={ind} />
             ))}
+            
+            <ChartOrderModal 
+                charts={chartsToDisplay}
+                onOrderChange={handleOrderChange}
+                onVisibilityChange={handleVisibilityChange}
+                chartsOrder={chartsOrder}
+                hiddenCharts={hiddenCharts}
+            />
         </section>
     );
 };

@@ -5,6 +5,8 @@ import { Cross } from "../../../svg/cross";
 import { Pen } from "../../../svg/pen";
 import styles from "./filters-menu-top.module.css";
 import { useFilters } from "../../../contexts/filters-context";
+import { useChartOrdering } from "../../../contexts/chart-ordering-context";
+import { useState } from "react";
 
 export const FiltersMenuTop = ({ title, handlerActive }) => {
     return (
@@ -116,6 +118,9 @@ const Filter = ({ id, name }) => {
 };
 
 const MenuButtons = ({ handlerActive }) => {
+    // Use the context hook instead of local state
+    const { isModalOpen, setIsModalOpen } = useChartOrdering();
+    
     return (
         <div className={styles.buttons}>
             <DateInput />
@@ -125,12 +130,14 @@ const MenuButtons = ({ handlerActive }) => {
                     <FilterSvg />
                 </span>
             </Button>
-            <Button color={"blue"}>
+            <Button onClick={() => setIsModalOpen(true)} color={"blue"}>
                 <span className={styles.buttonText}>סדר</span>
                 <span className={styles.svg}>
                     <Pen />
                 </span>
             </Button>
+            
+            {/* No need for extra provider here, just use the hook */}
         </div>
     );
 };

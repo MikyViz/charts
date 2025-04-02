@@ -97,7 +97,7 @@ export const FiltersMenuSelections = () => {
                         onFocus={() => handleFilterFocus(filterTypeMapping[id])}
                         disabled={isLoading[filterTypeMapping[id]]}
                     >
-                        <option value="">Выберите</option>
+                        <option value=""></option>
                         {filterOptions[filterTypeMapping[id]]?.map((option, index) => (
                             <option 
                                 key={`${id}-${index}`} 
@@ -109,7 +109,7 @@ export const FiltersMenuSelections = () => {
                     </select>
                     {isLoading[filterTypeMapping[id]] && 
                         <div className={styles.loadingIndicator}>
-                            Загрузка...
+                            טוען נתונים...
                         </div>
                     }
                 </div>
