@@ -202,7 +202,7 @@ export const Charts = () => {
                     isStacked: false,
                 },
                 type: "Line",
-                isOnline: true,
+                isOnline: false,
                 title: "תכנון / ביצוע",
             };
             charts.push(planVsPerformanceChart);
@@ -318,7 +318,7 @@ export const Charts = () => {
                     isStacked: false,
                 },
                 type: "Line",
-                isOnline: true,
+                isOnline: false,
                 title: "שינויים מתוכננים",
             };
             
@@ -370,7 +370,7 @@ export const Charts = () => {
                     isStacked: false,
                 },
                 type: "Line",
-                isOnline: true,
+                isOnline: false,
                 title: "סוג נסיעות מתוכנן",
             };
             
@@ -416,7 +416,7 @@ export const Charts = () => {
                     chartArea: { width: "100%", height: "100%" },
                 },
                 type: "Area",
-                isOnline: true,
+                isOnline: false,
                 title: "איחורים / הקדמות לתקופה",
             };
             charts.push(delayPerformanceChart);
