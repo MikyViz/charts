@@ -4,7 +4,9 @@ import { FilterSvg } from "../../../svg/filter-svg";
 import { Cross } from "../../../svg/cross";
 import { Pen } from "../../../svg/pen";
 import styles from "./filters-menu-top.module.css";
-import { useFilters } from "../../contexts/filters-context/use-filters";
+import { useFilters } from "../../../contexts/filters-context";
+import { useChartOrdering } from "../../../contexts/chart-ordering-context";
+import { useState } from "react";
 
 export const FiltersMenuTop = ({ title, handlerActive }) => {
     return (
@@ -17,43 +19,94 @@ export const FiltersMenuTop = ({ title, handlerActive }) => {
 };
 
 const Filters = () => {
-    const names = [
-        "Select 1",
-        "Select 2",
-        "Select 3",
-        "Select 4",
-        "Select 5",
-        "Select 6",
-        "Select 7",
-    ];
-
+    const { selectedFilters } = useFilters();
+    
+    // Фильтруем, чтобы показывать только те, для которых есть значения
+    const activeFilters = Object.entries(selectedFilters)
+        .filter(([key, value]) => value && key !== 'StartDate' && key !== 'EndDate')
+        .map(([key]) => {
+            return { id: key, name: getFilterLabel(key) };
+        });
+    
     return (
         <div className={styles.filters}>
-            {names.map((name, ind) => (
-                <Filter key={ind} name={name} />
+            {activeFilters.map((filter) => (
+                <Filter key={filter.id} id={filter.id} name={filter.name} />
             ))}
         </div>
     );
 };
 
-const Filter = ({ name }) => {
-    const { filters, deleteFilter } = useFilters();
-    let filterItems = filters[name];
+// Вспомогательная функция для получения понятного имени фильтра
+const getFilterLabel = (filterId) => {
+    const labels = {
+        'Agency': 'מפעיל',
+        'Cluster': 'אשכול',
+        'SubCluster': 'תת אשכול',
+        'City': 'עיר',
+        'RouteNumber': 'קו',
+        'LineType': 'סוג קו',
+        'linegroup': 'קבוצת קווים'
+    };
+    return labels[filterId] || filterId;
+};
 
-    if (!filterItems) {
+const Filter = ({ id, name }) => {
+    const { selectedFilters, handleFilterChange, filterOptions } = useFilters();
+    
+    // Если нет выбранного значения, не показываем фильтр
+    if (!selectedFilters[id]) {
         return null;
     }
-
-    filterItems = Array.from(filterItems).join(", ");
-
+    
+    // Получаем отображаемое значение
+    let displayValue = selectedFilters[id];
+    
+    // Для некоторых фильтров нужно искать отображаемое значение в опциях
+    const filterTypeMapping = {
+        "Agency": "Agency",
+        "Cluster": "Cluster",
+        "SubCluster": "SubCluster",
+        "City": "Cities",
+        "RouteNumber": "LineID",
+        "LineType": "LineType",
+        "linegroup": "linegroup"
+    };
+    
+    const apiType = filterTypeMapping[id];
+    
+    if (filterOptions[apiType]) {
+        // Ищем соответствующий объект в опциях
+        const mappingFields = {
+            "Agency": { valueField: "agency_id", displayField: "agency_name" },
+            "Cluster": { valueField: "Clusterid", displayField: "ClusterName" },
+            "SubCluster": { valueField: "SubCluster", displayField: "SubCluster" },
+            "City": { valueField: "CityName", displayField: "CityName" },
+            "RouteNumber": { valueField: "LineID", displayField: "RouteNumber" },
+            "LineType": { valueField: "LineType", displayField: "LineType" },
+            "linegroup": { valueField: "id", displayField: "descrip" }
+        };
+        
+        const field = mappingFields[id];
+        if (field) {
+            const option = filterOptions[apiType].find(
+                opt => String(opt[field.valueField]) === String(selectedFilters[id])
+            );
+            
+            if (option) {
+                displayValue = option[field.displayField];
+            }
+        }
+    }
+    
     return (
         <div className={styles.filter}>
             <span className={styles.filterName}>{name}: </span>
             <span className={styles.filterText}>
-                {filterItems}
+                {displayValue}
                 <button
                     onClick={() => {
-                        deleteFilter(name);
+                        handleFilterChange({ target: { id: id, value: '' } });
                     }}
                     className={styles.cross}
                 >
@@ -65,21 +118,26 @@ const Filter = ({ name }) => {
 };
 
 const MenuButtons = ({ handlerActive }) => {
+    // Use the context hook instead of local state
+    const { isModalOpen, setIsModalOpen } = useChartOrdering();
+    
     return (
         <div className={styles.buttons}>
             <DateInput />
             <Button onClick={handlerActive} color={"blue"}>
-                <span className={styles.buttonText}>Фильтр</span>
+                <span className={styles.buttonText}>סנן</span>
                 <span className={styles.svg}>
                     <FilterSvg />
                 </span>
             </Button>
-            <Button color={"blue"}>
-                <span className={styles.buttonText}>Упорядочить</span>
+            <Button onClick={() => setIsModalOpen(true)} color={"blue"}>
+                <span className={styles.buttonText}>סדר</span>
                 <span className={styles.svg}>
                     <Pen />
                 </span>
             </Button>
+            
+            {/* No need for extra provider here, just use the hook */}
         </div>
     );
 };

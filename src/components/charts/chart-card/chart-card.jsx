@@ -4,6 +4,8 @@ import { Select } from "../../select/select";
 import styles from "./chart-card.module.css";
 import { useRef, useState } from "react";
 import classNames from "classnames";
+// import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 
 const chartsTypes = {
     Column: "ColumnChart",
@@ -25,23 +27,28 @@ export const ChartCard = ({ chart }) => {
         setChartsTypeData(event.target.value);
     };
 
-    const downloadChart = () => {
-        if (!chartRef.current) {
-            alert("Диаграмма ещё не готова. Пожалуйста, подождите.");
+    const downloadChart = async () => {
+        if (!data || data.length === 0) {
+            alert("אין נתונים להורדה");
             return;
         }
 
-        const chart = chartRef.current.getChart();
-        if (!chart) {
-            alert("Не удалось получить диаграмму. Попробуйте снова.");
-            return;
-        }
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet("Chart Data");
 
-        const imageURI = chart.getImageURI();
+        // Добавляем данные в таблицу
+        data.forEach((row) => {
+            worksheet.addRow(row);
+        });
 
+        // Генерируем файл Excel
+        const buffer = await workbook.xlsx.writeBuffer();
+
+        // Создаём Blob и инициируем скачивание
+        const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
         const link = document.createElement("a");
-        link.href = imageURI;
-        link.download = "line-chart.png";
+        link.href = URL.createObjectURL(blob);
+        link.download = `${title || "chart-data"}.xlsx`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -56,13 +63,13 @@ export const ChartCard = ({ chart }) => {
             <div className={styles.head}>
                 <div className={styles.headTitle}>
                     <h3 className={styles.title}>{title}</h3>
-                    {isOnline && <p className={styles.subtitle}>(онлайн)</p>}
+                    {isOnline && <p className={styles.subtitle}>(זמן אמת)</p>}
                 </div>
                 <div className={styles.activities}>
                     <div className={styles.selects}>
                         {thereIsTypeData && (
                             <Select
-                                name="Тип данных"
+                                name="סוג תלונה"
                                 items={["1", "2", "3"]}
                                 style="round"
                                 size="small"
@@ -74,7 +81,7 @@ export const ChartCard = ({ chart }) => {
                             />
                         )}
                         <Select
-                            name="Вид отчета"
+                            name="תצוגת נתונים"
                             items={["Column", "Bar", "Line", "Area"]}
                             style="round"
                             size="small"
