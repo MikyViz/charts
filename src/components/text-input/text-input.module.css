@@ -1,0 +1,16 @@
+.input, .textarea {
+    padding: 19px 29px;
+    border: 1px solid #3AA6A1;
+    font: 400 18px/1 var(--font);
+    width: 100%;
+}
+
+.input {
+    border-radius: 50px;
+}
+
+.textarea {
+    border-radius: 20px;
+    resize: none;
+    height: 200px;
+}

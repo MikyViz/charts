@@ -1,31 +1,95 @@
-import { useState, useEffect } from 'react';
-import styles from './chart-order-modal.module.css';
-import { Cross } from '../../../svg/cross';
-import { Button } from '../../button/button';
+import { useState, useEffect } from "react";
+import styles from "./chart-order-modal.module.css";
+import { Cross } from "../../../svg/cross";
+import { Button } from "../../button/button";
 import { useChartOrdering } from "../../../contexts/chart-ordering-context";
+import classNames from "classnames";
+import { Eye } from "../../../svg/eye";
+import {
+    DndContext,
+    closestCenter,
+    useDraggable,
+    useDroppable,
+} from "@dnd-kit/core";
+import { arrayMove } from "@dnd-kit/sortable";
+import { DragHandleIcon } from "../../../svg/drag-handle-icon";
 
-export const ChartOrderModal = ({ 
-    charts, 
-    onOrderChange, 
-    onVisibilityChange, 
-    chartsOrder, 
-    hiddenCharts 
+const ChartItem = ({ chart, index, localHidden, handleVisibilityToggle }) => {
+    const chartId = chart.title;
+    const isHidden = localHidden.includes(chartId);
+
+    const { attributes, listeners, setNodeRef, transform } = useDraggable({
+        id: chartId,
+    });
+
+    const { setNodeRef: setDropNodeRef } = useDroppable({
+        id: chartId,
+    });
+
+    const style = {
+        transform: transform
+            ? `translate3d(${transform.x}px, ${transform.y}px, 0)`
+            : undefined,
+    };
+
+    return (
+        <div
+            ref={(node) => {
+                setNodeRef(node);
+                setDropNodeRef(node);
+            }}
+            style={style}
+            className={styles.chartElement}
+        >
+            <span className={styles.chartTitle}>{chart.title}</span>
+            <div
+                className={classNames(styles.chartButtons, {
+                    [styles.hiddenChart]: isHidden,
+                })}
+            >
+                <label>
+                    <input
+                        type="checkbox"
+                        checked={!isHidden}
+                        onChange={() => handleVisibilityToggle(chartId)}
+                        className={styles.visibilityCheckbox}
+                    />
+                    <span className={styles.eye}>
+                        <Eye />
+                    </span>
+                </label>
+                <span
+                    className={styles.dragHandle}
+                    {...attributes}
+                    {...listeners}
+                >
+                    <DragHandleIcon />
+                </span>
+            </div>
+        </div>
+    );
+};
+
+export const ChartOrderModal = ({
+    charts,
+    onOrderChange,
+    onVisibilityChange,
+    chartsOrder,
+    hiddenCharts,
 }) => {
     const { isModalOpen, setIsModalOpen } = useChartOrdering();
-    const [localOrder, setLocalOrder] = useState({});
+    const [localCharts, setLocalCharts] = useState([]);
     const [localHidden, setLocalHidden] = useState([]);
 
     // Initialize with current values when modal opens
     useEffect(() => {
         if (isModalOpen) {
-            // Create default order if not set
-            const defaultOrder = {};
-            charts.forEach((chart, index) => {
-                const chartId = chart.title;
-                defaultOrder[chartId] = chartsOrder[chartId] !== undefined ? chartsOrder[chartId] : index;
+            const sortedCharts = [...charts].sort((a, b) => {
+                const aOrder = chartsOrder[a.title] ?? charts.indexOf(a);
+                const bOrder = chartsOrder[b.title] ?? charts.indexOf(b);
+                return aOrder - bOrder;
             });
-            
-            setLocalOrder(defaultOrder);
+            setLocalCharts(sortedCharts);
             setLocalHidden([...hiddenCharts]);
         }
     }, [isModalOpen, charts, chartsOrder, hiddenCharts]);
@@ -33,31 +97,40 @@ export const ChartOrderModal = ({
     // Close modal function
     const handleClose = () => setIsModalOpen(false);
 
-    // Handle order change for a specific chart
-    const handleOrderChange = (chartId, value) => {
-        const orderValue = parseInt(value, 10) || 0;
-        setLocalOrder(prev => ({
-            ...prev,
-            [chartId]: orderValue
-        }));
-    };
-
     // Handle visibility toggle for a chart
     const handleVisibilityToggle = (chartId) => {
-        setLocalHidden(prev => {
+        setLocalHidden((prev) => {
             if (prev.includes(chartId)) {
-                return prev.filter(id => id !== chartId);
+                return prev.filter((id) => id !== chartId);
             } else {
                 return [...prev, chartId];
             }
         });
     };
 
+    const handleDragEnd = (event) => {
+        const { active, over } = event;
+        if (active.id !== over?.id) {
+            const oldIndex = localCharts.findIndex(
+                (chart) => chart.title === active.id
+            );
+            const newIndex = localCharts.findIndex(
+                (chart) => chart.title === over.id
+            );
+            const newOrder = arrayMove(localCharts, oldIndex, newIndex);
+            setLocalCharts(newOrder);
+        }
+    };
+
     // Save changes
     const handleSave = () => {
-        onOrderChange(localOrder);
+        const newOrder = {};
+        localCharts.forEach((chart, index) => {
+            newOrder[chart.title] = index;
+        });
+        onOrderChange(newOrder);
         onVisibilityChange(localHidden);
-        setIsModalOpen(false); // Close modal after saving
+        setIsModalOpen(false);
     };
 
     if (!isModalOpen) return null;
@@ -67,52 +140,31 @@ export const ChartOrderModal = ({
             <div className={styles.modal}>
                 <div className={styles.modalHeader}>
                     <h2 className={styles.modalTitle}>סדר גרפים</h2>
-                    <button onClick={handleClose} className={styles.closeButton}>
+                    <button
+                        onClick={handleClose}
+                        className={styles.closeButton}
+                    >
                         <Cross />
                     </button>
                 </div>
-                
-                <div className={styles.modalBody}>
-                    <table className={styles.chartsTable}>
-                        <thead>
-                            <tr>
-                                <th>שם הגרף</th>
-                                <th>מספר סדר</th>
-                                <th>הצג</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {charts.map((chart) => {
-                                const chartId = chart.title;
-                                const isHidden = localHidden.includes(chartId);
-                                
-                                return (
-                                    <tr key={chartId} className={isHidden ? styles.hiddenChart : ''}>
-                                        <td>{chart.title}</td>
-                                        <td>
-                                            <input 
-                                                type="number" 
-                                                min="0" 
-                                                value={localOrder[chartId] || 0}
-                                                onChange={(e) => handleOrderChange(chartId, e.target.value)}
-                                                className={styles.orderInput}
-                                            />
-                                        </td>
-                                        <td>
-                                            <input 
-                                                type="checkbox" 
-                                                checked={!isHidden}
-                                                onChange={() => handleVisibilityToggle(chartId)}
-                                                className={styles.visibilityCheckbox}
-                                            />
-                                        </td>
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
-                </div>
-                
+
+                <DndContext
+                    collisionDetection={closestCenter}
+                    onDragEnd={handleDragEnd}
+                >
+                    <div className={styles.modalBody}>
+                        {localCharts.map((chart, index) => (
+                            <ChartItem
+                                key={chart.title}
+                                chart={chart}
+                                index={index}
+                                localHidden={localHidden}
+                                handleVisibilityToggle={handleVisibilityToggle}
+                            />
+                        ))}
+                    </div>
+                </DndContext>
+
                 <div className={styles.modalFooter}>
                     <Button onClick={handleSave} color={"fullBlue"}>
                         שמור שינויים

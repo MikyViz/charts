@@ -99,17 +99,19 @@ export const ChartCard = ({ chart }) => {
                     </button>
                 </div>
             </div>
-            <Chart
-                chartType={chartsTypes[chartsType]}
-                width="100%"
-                height="400px"
-                data={data}
-                className={styles.mainChart}
-                options={options}
-                getChartWrapper={(chartWrapper) => {
-                    chartRef.current = chartWrapper;
-                }}
-            />
+            <div className={styles.chartContainer}>
+                <Chart
+                    chartType={chartsTypes[chartsType]}
+                    width="100%"
+                    height="100%"
+                    data={data}
+                    className={styles.mainChart}
+                    options={options}
+                    getChartWrapper={(chartWrapper) => {
+                        chartRef.current = chartWrapper;
+                    }}
+                />
+            </div>
         </div>
     );
 };
