@@ -2,24 +2,10 @@ import { Link } from "react-router-dom";
 import logo from "../../../img/לוגו.png";
 import { Help } from "../../../svg/help";
 import styles from "./header.module.css";
-import { SupportModal } from "../../support-modal/support-modal";
-import { Modal } from "../../modal/modal";
-import { useState } from "react";
 
-export const Header = ({ thereAreActivities = true }) => {
-    const [showModal, setShowModal] = useState(false);
-
+export const Header = ({ thereAreActivities = true, handlerHelpModal }) => {
     return (
         <div className={styles.header}>
-            {showModal && (
-                <Modal
-                    handlerClose={() => {
-                        setShowModal(false);
-                    }}
-                >
-                    <SupportModal />
-                </Modal>
-            )}
             <Link className={styles.home} to={"/"}>
                 <img src={logo} className={styles.img} alt="Logo" />
             </Link>
@@ -27,7 +13,7 @@ export const Header = ({ thereAreActivities = true }) => {
                 <div className={styles.active}>
                     <button
                         onClick={() => {
-                            setShowModal(true);
+                            handlerHelpModal(true);
                         }}
                         className={styles.helpButton}
                     >

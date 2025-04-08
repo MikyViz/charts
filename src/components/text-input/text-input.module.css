@@ -14,3 +14,11 @@
     resize: none;
     height: 200px;
 }
+
+@media (max-width: 576px) {
+    .input, .textarea {
+        font-size: 16px;
+        padding: 11px 20px;
+    }
+}
+

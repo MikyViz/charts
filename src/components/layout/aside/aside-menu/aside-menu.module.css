@@ -143,6 +143,10 @@
 }
 
 @media (max-width: 576px) {
+  .menuBtn {
+    padding: 13px 7px;
+  }
+
   .linkText {
     display: none;
   }
@@ -153,11 +157,11 @@
   }
 
   .menuBtnText {
-    font-size: 18px;
+    font-size: 16px;
   }
 
   .active .linkText {
     display: inline-block;
-    font-size: 14px;
+    font-size: 16px;
   }
 }

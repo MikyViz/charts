@@ -1,43 +1,48 @@
 import { useState, useEffect } from "react";
 import styles from "./chart-order-modal.module.css";
 import { Cross } from "../../../svg/cross";
-import { Button } from "../../button/button";
+import { FilledButton } from "../../filled-button/filled-button";
 import { useChartOrdering } from "../../../contexts/chart-ordering-context";
 import classNames from "classnames";
 import { Eye } from "../../../svg/eye";
+import { CloseEye } from "../../../svg/close-eye";
 import {
     DndContext,
     closestCenter,
-    useDraggable,
-    useDroppable,
+    useSensors,
+    useSensor,
+    MouseSensor,
+    TouchSensor,
 } from "@dnd-kit/core";
-import { arrayMove } from "@dnd-kit/sortable";
+import {
+    SortableContext,
+    verticalListSortingStrategy,
+    useSortable,
+    arrayMove, 
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { DragHandleIcon } from "../../../svg/drag-handle-icon";
 
-const ChartItem = ({ chart, index, localHidden, handleVisibilityToggle }) => {
+const ChartItem = ({ chart, localHidden, handleVisibilityToggle }) => {
     const chartId = chart.title;
     const isHidden = localHidden.includes(chartId);
 
-    const { attributes, listeners, setNodeRef, transform } = useDraggable({
-        id: chartId,
-    });
-
-    const { setNodeRef: setDropNodeRef } = useDroppable({
-        id: chartId,
-    });
+    const {
+        attributes,
+        listeners,
+        setNodeRef,
+        transform,
+        transition,
+    } = useSortable({ id: chartId });
 
     const style = {
-        transform: transform
-            ? `translate3d(${transform.x}px, ${transform.y}px, 0)`
-            : undefined,
+        transform: CSS.Transform.toString(transform),
+        transition: transition || "transform 0.1s ease",
     };
 
     return (
         <div
-            ref={(node) => {
-                setNodeRef(node);
-                setDropNodeRef(node);
-            }}
+            ref={setNodeRef}
             style={style}
             className={styles.chartElement}
         >
@@ -56,6 +61,9 @@ const ChartItem = ({ chart, index, localHidden, handleVisibilityToggle }) => {
                     />
                     <span className={styles.eye}>
                         <Eye />
+                    </span>
+                    <span className={styles.closeEye}>
+                        <CloseEye />
                     </span>
                 </label>
                 <span
@@ -81,7 +89,13 @@ export const ChartOrderModal = ({
     const [localCharts, setLocalCharts] = useState([]);
     const [localHidden, setLocalHidden] = useState([]);
 
-    // Initialize with current values when modal opens
+    const sensors = useSensors(
+        useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
+        useSensor(TouchSensor, {
+            activationConstraint: { delay: 250, tolerance: 5 },
+        })
+    );
+
     useEffect(() => {
         if (isModalOpen) {
             const sortedCharts = [...charts].sort((a, b) => {
@@ -94,35 +108,37 @@ export const ChartOrderModal = ({
         }
     }, [isModalOpen, charts, chartsOrder, hiddenCharts]);
 
-    // Close modal function
     const handleClose = () => setIsModalOpen(false);
 
-    // Handle visibility toggle for a chart
+    const handleOutsideClick = (event) => {
+        if (event.target.className === styles.modalOverlay) {
+            handleClose();
+        }
+    };
+
     const handleVisibilityToggle = (chartId) => {
-        setLocalHidden((prev) => {
-            if (prev.includes(chartId)) {
-                return prev.filter((id) => id !== chartId);
-            } else {
-                return [...prev, chartId];
-            }
-        });
+        setLocalHidden((prev) =>
+            prev.includes(chartId)
+                ? prev.filter((id) => id !== chartId)
+                : [...prev, chartId]
+        );
     };
 
     const handleDragEnd = (event) => {
         const { active, over } = event;
         if (active.id !== over?.id) {
-            const oldIndex = localCharts.findIndex(
-                (chart) => chart.title === active.id
-            );
-            const newIndex = localCharts.findIndex(
-                (chart) => chart.title === over.id
-            );
-            const newOrder = arrayMove(localCharts, oldIndex, newIndex);
-            setLocalCharts(newOrder);
+            setLocalCharts((prevCharts) => {
+                const oldIndex = prevCharts.findIndex(
+                    (chart) => chart.title === active.id
+                );
+                const newIndex = prevCharts.findIndex(
+                    (chart) => chart.title === over.id
+                );
+                return arrayMove(prevCharts, oldIndex, newIndex);
+            });
         }
     };
 
-    // Save changes
     const handleSave = () => {
         const newOrder = {};
         localCharts.forEach((chart, index) => {
@@ -136,7 +152,7 @@ export const ChartOrderModal = ({
     if (!isModalOpen) return null;
 
     return (
-        <div className={styles.modalOverlay}>
+        <div className={styles.modalOverlay} onClick={handleOutsideClick}>
             <div className={styles.modal}>
                 <div className={styles.modalHeader}>
                     <h2 className={styles.modalTitle}>סדר גרפים</h2>
@@ -149,29 +165,29 @@ export const ChartOrderModal = ({
                 </div>
 
                 <DndContext
+                    sensors={sensors}
                     collisionDetection={closestCenter}
                     onDragEnd={handleDragEnd}
                 >
-                    <div className={styles.modalBody}>
-                        {localCharts.map((chart, index) => (
-                            <ChartItem
-                                key={chart.title}
-                                chart={chart}
-                                index={index}
-                                localHidden={localHidden}
-                                handleVisibilityToggle={handleVisibilityToggle}
-                            />
-                        ))}
-                    </div>
+                    <SortableContext
+                        items={localCharts.map((chart) => chart.title)}
+                        strategy={verticalListSortingStrategy}
+                    >
+                        <div className={styles.modalBody}>
+                            {localCharts.map((chart) => (
+                                <ChartItem
+                                    key={chart.title}
+                                    chart={chart}
+                                    localHidden={localHidden}
+                                    handleVisibilityToggle={handleVisibilityToggle}
+                                />
+                            ))}
+                        </div>
+                    </SortableContext>
                 </DndContext>
 
                 <div className={styles.modalFooter}>
-                    <Button onClick={handleSave} color={"fullBlue"}>
-                        שמור שינויים
-                    </Button>
-                    <Button onClick={handleClose} color={"blue"}>
-                        ביטול
-                    </Button>
+                    <FilledButton onClick={handleSave} text={"שמור שינויים"} />
                 </div>
             </div>
         </div>

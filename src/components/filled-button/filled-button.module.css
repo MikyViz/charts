@@ -9,3 +9,9 @@
     background: #3AA6A1;
     border-radius: 50px;
 }
+
+@media (max-width: 576px) {
+    .button {
+        height: 50px;
+    }
+}

@@ -26,7 +26,7 @@ const defaultCharts = [
         ],
         options: {
             title: "",
-            chartArea: { width: "50%" },
+            chartArea: { width: "80%", height: "60%" },
             isStacked: true,
             hAxis: {
                 title: "",
@@ -39,7 +39,7 @@ const defaultCharts = [
             legend: { position: "top", maxLines: 3 },
             colors: ["#36A2EB", "#FFCE56", "#9966FF"],
         },
-        type: "Column",
+        type: "Stacked Column",
         title: "0תכנון / ביצוע",
     },
     {
