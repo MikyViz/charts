@@ -10,6 +10,7 @@ export const Select = ({
     name,
     items,
     onClick,
+    onOpen,
     activeFilters,
     type,
     thereIsSearch = true,
@@ -18,10 +19,42 @@ export const Select = ({
     thereIsAgree = true,
 }) => {
     const [selectActive, setSelectActive] = useState(false);
+    const [localActiveFilters, setLocalActiveFilters] = useState(activeFilters || new Set());
     const selectRef = useRef(null);
 
+    // Обновляем localActiveFilters при изменении activeFilters из пропсов
+    useEffect(() => {
+        if (activeFilters) {
+            setLocalActiveFilters(activeFilters);
+        }
+    }, [activeFilters]);
+
     const handlerClick = () => {
+        if (!selectActive && onOpen) {
+            onOpen();
+        }
         setSelectActive(!selectActive);
+    };
+
+    // Обработчик клика по чекбоксу
+    const handleCheckboxClick = (value) => {
+        if (type === "radio") {
+            // Для radio заменяем всё на новое значение
+            setLocalActiveFilters(new Set([value]));
+        } else {
+            // Для checkbox добавляем/удаляем значение
+            const newFilters = new Set(localActiveFilters);
+            if (newFilters.has(value)) {
+                newFilters.delete(value);
+            } else {
+                newFilters.add(value);
+            }
+            setLocalActiveFilters(newFilters);
+        }
+        // Вызываем внешний обработчик
+        if (onClick) {
+            onClick(value);
+        }
     };
 
     useEffect(() => {
@@ -34,9 +67,7 @@ export const Select = ({
                 setSelectActive(false);
             }
         };
-
         document.addEventListener("mousedown", handleClickOutside);
-
         return () => {
             document.removeEventListener("mousedown", handleClickOutside);
         };
@@ -57,8 +88,8 @@ export const Select = ({
             />
             <Window
                 items={items}
-                checkboxClick={onClick}
-                activeFilters={activeFilters}
+                checkboxClick={handleCheckboxClick}
+                activeFilters={localActiveFilters}
                 handlerClick={handlerClick}
                 name={name}
                 type={type}
@@ -94,15 +125,21 @@ const Window = ({
     thereIsAgree,
 }) => {
     const [foundItems, setFoundItems] = useState(items);
-    const handlerInput = (event) => {
-        const regexp = new RegExp(event.target.value, "i");
-        setFoundItems(items.filter((e) => e.match(regexp)));
-    };
+
+    useEffect(() => {
+        setFoundItems(items);
+    }, [items]);
 
     return (
         <div className={styles.window}>
-            {thereIsSearch && <SearchFiled handlerInput={handlerInput} />}
-            {!thereIsSearch && <p className={styles.head}>בחר תצוגה </p>}
+            {thereIsSearch && (
+                <SearchFiled
+                    handlerInput={(e) => {
+                        const regexp = new RegExp(e.target.value, "i");
+                        setFoundItems(items.filter((item) => item.match(regexp)));
+                    }}
+                />
+            )}
             <Results
                 foundItems={foundItems}
                 checkboxClick={checkboxClick}
@@ -110,7 +147,6 @@ const Window = ({
                 name={name}
                 type={type}
             />
-            {thereIsAgree && <Submit handlerClick={handlerClick} />}
         </div>
     );
 };
@@ -132,20 +168,25 @@ const SearchFiled = ({ handlerInput }) => {
 };
 
 const Results = ({ foundItems, checkboxClick, activeFilters, name, type }) => {
-    const uniqueId = uuidv4();
+    // Проверяем, есть ли элементы для отображения
+    if (!foundItems || foundItems.length === 0) {
+        return <div className={styles.noResults}>Нет доступных фильтров</div>;
+    }
 
     return (
         <div className={styles.checkboxContainer}>
-            {foundItems.map((item, ind) => (
-                <Checkbox
-                    name={`${name}/${uniqueId}`}
-                    item={item}
-                    key={ind}
-                    type={type}
-                    checkboxClick={checkboxClick}
-                    activeFilters={activeFilters}
-                />
-            ))}
+            {foundItems.map((item, ind) => {
+                return (
+                    <Checkbox
+                        name={`${name}-${ind}`}
+                        item={item}
+                        key={ind}
+                        type={type}
+                        checkboxClick={checkboxClick}
+                        activeFilters={activeFilters}
+                    />
+                );
+            })}
         </div>
     );
 };

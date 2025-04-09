@@ -8,6 +8,18 @@ const getDateBefore = (days) => {
     return date;
 };
 
+// Function to get today's date at 00:00:00
+const getStartOfToday = () => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return today;
+};
+
+// Function to get current date and time
+const getCurrentDateTime = () => {
+    return new Date();
+};
+
 // Current date for end date
 const currentDate = new Date();
 // 7 days before today for start date (to get 8 days total including today)
@@ -32,6 +44,9 @@ export const FiltersProvider = ({ children }) => {
     // Хранилище для опций каждого фильтра
     const [filterOptions, setFilterOptions] = useState({});
     
+    // State for tracking hourly view mode
+    const [isHourlyView, setIsHourlyView] = useState(false);
+    
     // Текущие выбранные значения фильтров
     const [selectedFilters, setSelectedFilters] = useState({
         Agency: '',
@@ -44,6 +59,51 @@ export const FiltersProvider = ({ children }) => {
         StartDate: weekAgo.toISOString().split('T')[0],
         EndDate: currentDate.toISOString().split('T')[0]
     });
+    
+    // Function to check if date is today
+    const isToday = (dateStr) => {
+        const today = new Date();
+        const date = new Date(dateStr);
+        return date.getDate() === today.getDate() &&
+               date.getMonth() === today.getMonth() &&
+               date.getFullYear() === today.getFullYear();
+    };
+    
+    // Function to set hourly view for today
+    const setHourlyViewForToday = () => {
+        const now = getCurrentDateTime();
+        const startOfToday = getStartOfToday();
+    
+        const startDate = startOfToday.toISOString().slice(0, 19).replace('T', ' ');
+        const endDate = now.toISOString().slice(0, 19).replace('T', ' ');
+    
+        setSelectedFilters((prev) => {
+            const newFilters = {
+                ...prev,
+                StartDate: startDate,
+                EndDate: endDate,
+                GroupBy: 'HOUR', // Устанавливаем GroupBy в HOUR
+            };
+            console.log('Обновление фильтров для почасового режима:', newFilters);
+            return newFilters;
+        });
+    
+        setIsHourlyView(true);
+        console.log('setIsHourlyView(true) вызван'); // Добавлено логирование
+    };
+    
+    // Function to set daily view
+    const setDailyView = (startDate, endDate) => {
+        setSelectedFilters(prev => ({
+            ...prev,
+            StartDate: startDate,
+            EndDate: endDate,
+            GroupBy: 'DAY' // Устанавливаем GroupBy в DAY
+        }));
+        
+        setIsHourlyView(false);
+        console.log('setIsHourlyView(false) вызван'); // Добавлено логирование
+    };
     
     // Состояние загрузки для каждого фильтра
     const [isLoading, setIsLoading] = useState({});
@@ -117,8 +177,21 @@ export const FiltersProvider = ({ children }) => {
         } catch (err) {
             console.error(`Ошибка при загрузке ${filterType}:`, err);
             
-            // Не устанавливаем ошибку, если это "успешная операция"
-            if (err.message !== "הפעולה הצליחה") {
+            // Исправим проверку сообщения об ошибке для групп линий (более гибкая проверка)
+            if (filterType === 'linegroup' && 
+                (err.response?.data?.ErrMsg === "אין למשתמש קבוצות קוים" || 
+                 err.response?.data?.ErrMsg === "אין למשתמש קבוצות קווים" ||
+                 err.response?.status === 406)) {
+                
+                console.log("Обнаружена ошибка с группами линий:", err.response?.data);
+                
+                // Установим пустой массив и специальный флаг
+                setFilterOptions(prev => ({
+                    ...prev,
+                    [filterType]: [],
+                    [`${filterType}_empty`]: true  // Этот флаг используется в UI
+                }));
+            } else if (err.message !== "הפעולה הצליחה") {
                 setError(err.message || 'Произошла ошибка при загрузке фильтров');
             } else {
                 setFilterOptions(prev => ({
@@ -138,7 +211,7 @@ export const FiltersProvider = ({ children }) => {
         }
     }, [filterOptions, loadFilterOptions]);
     
-    // Обработчик изменения фильтра
+    // Updated handleFilterChange to detect same-day selection
     const handleFilterChange = useCallback((idOrEvent, directValue) => {
         let id, value;
         
@@ -164,10 +237,16 @@ export const FiltersProvider = ({ children }) => {
             Number(value) : value;
         
         // Обновляем выбранный фильтр
-        setSelectedFilters(prev => ({
-            ...prev,
-            [id]: processedValue
-        }));
+        setSelectedFilters(prev => {
+            const newFilters = {
+                ...prev,
+                [id]: processedValue
+            };
+            
+            console.log('Обновление фильтров:', newFilters);
+            
+            return newFilters;
+        });
         
         // Определяем зависимые фильтры для сброса
         let filtersToReset = {};
@@ -229,6 +308,7 @@ export const FiltersProvider = ({ children }) => {
         setFilterOptions({});
     }, []);
     
+    // Return the updated context value including hourly view functions
     return (
         <FiltersContext.Provider value={{
             filterOptions,
@@ -238,7 +318,8 @@ export const FiltersProvider = ({ children }) => {
             handleFilterFocus,
             handleFilterChange,
             applyFilters,
-            resetFilters
+            resetFilters,
+            isHourlyView
         }}>
             {children}
         </FiltersContext.Provider>

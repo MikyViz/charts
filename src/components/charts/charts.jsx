@@ -1,5 +1,6 @@
 import { ChartCard } from "./chart-card/chart-card";
 import styles from "./charts.module.css";
+import axios from "axios";
 import { useEffect, useState, useMemo } from "react";
 import { useFilters } from "../../contexts/filters-context";
 import { 
@@ -62,7 +63,7 @@ const defaultCharts = [
 ];
 
 export const Charts = () => {
-    const { selectedFilters } = useFilters();
+    const { selectedFilters, isHourlyView } = useFilters();
     const [chartsData, setChartsData] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -95,12 +96,12 @@ export const Charts = () => {
 
         const loadChartData = async () => {
             if (isMounted) setIsLoading(true);
-            
+
             try {
                 const apiFilters = {
                     startDate: selectedFilters.StartDate,
                     endDate: selectedFilters.EndDate,
-                    groupBy: 'DAY',
+                    groupBy: selectedFilters.GroupBy, // Используем GroupBy из selectedFilters
                     City: selectedFilters.City,
                     AgencyId: selectedFilters.Agency,
                     ClusterId: selectedFilters.Cluster,
@@ -109,9 +110,7 @@ export const Charts = () => {
                     LineId: selectedFilters.RouteNumber,
                     linegroup: selectedFilters.linegroup
                 };
-                
-                console.log('Запрос данных с параметрами:', apiFilters);
-                
+                                
                 // Выполняем запросы к API
                 const results = await Promise.allSettled([
                     fetchPlanVsPerformance(apiFilters, authData),
@@ -129,14 +128,6 @@ export const Charts = () => {
                 const linePerformanceData = results[3].status === 'fulfilled' ? results[3].value : null;
                 const plannedChangesData = results[4].status === 'fulfilled' ? results[4].value : null;
                 const tripsPerformanceDetailsData = results[5].status === 'fulfilled' ? results[5].value : null;
-                
-                console.log('Получены данные от API:');
-                console.log('planVsPerformanceData:', planVsPerformanceData);
-                console.log('performancePercentageData:', performancePercentageData);
-                console.log('plannedTripsData:', plannedTripsData);
-                console.log('linePerformanceData:', linePerformanceData);
-                console.log('plannedChangesData:', plannedChangesData);
-                console.log('tripsPerformanceDetailsData:', tripsPerformanceDetailsData);
                 
                 if (isMounted) {
                     // Преобразуем имеющиеся данные в графики
@@ -190,20 +181,81 @@ export const Charts = () => {
         return () => {
             isMounted = false;
         };
-    }, [selectedFilters, authData]); // теперь authData стабилен и не вызывает перерендер
+    }, [selectedFilters, authData, isHourlyView]); // Add isHourlyView to dependencies
+
+    useEffect(() => {
+        const fetchData = async () => {
+            if (!selectedFilters.StartDate || !selectedFilters.EndDate) {
+                console.log('Даты не установлены, запрос пропущен');
+                return;
+            }
+    
+            console.log('Отправка запроса с фильтрами:', selectedFilters);
+    
+            try {
+                const response = await axios.post(`${url}/endpoint`, {
+                    username: user,
+                    password: password,
+                    data: selectedFilters,
+                });
+    
+                console.log('Ответ от API:', response.data);
+            } catch (error) {
+                console.error('Ошибка при отправке запроса:', error);
+            }
+        };
+    
+        fetchData();
+    }, [selectedFilters, url, user, password]);
 
     // Форматирование даты для отображения по дням
     const formatDay = (dayStr) => {
         if (!dayStr) return 'N/A';
-        
+
         try {
-            const [year, month, day] = dayStr.split('-');
-            return `${day}.${month}`;
+            // Для почасового режима обрабатываем формат "Apr 8 2025 1:00PM"
+            if (isHourlyView && (dayStr.includes('AM') || dayStr.includes('PM'))) {
+                const parts = dayStr.split(' ');
+                // Берем только время
+                const timePart = parts[parts.length - 1]; // "1:00PM"
+                return timePart; // Возвращаем только время без преобразования
+            } 
+            // Для обычного формата YYYY-MM-DD
+            else if (dayStr.includes('-')) {
+                const [year, month, day] = dayStr.split('-');
+                return `${day}.${month}`;
+            }
+            
+            return dayStr;
         } catch (e) {
             console.error('Ошибка при форматировании даты:', e);
             return dayStr;
         }
     };
+
+    // Вспомогательная функция для преобразования названия месяца в номер
+    const getMonthNumber = (monthName) => {
+        const months = {
+            'Jan': '01', 'Feb': '02', 'Mar': '03', 'Apr': '04',
+            'May': '05', 'Jun': '06', 'Jul': '07', 'Aug': '08',
+            'Sep': '09', 'Oct': '10', 'Nov': '11', 'Dec': '12'
+        };
+        return months[monthName] || '00';
+    };
+
+    // Форматирует отображение часа из строки "Apr 8 2025 1:00PM" в "1:00PM"
+    const formatHourDisplay = (hourStr) => {
+        try {
+            const parts = hourStr.split(' ');
+            // Берем только последнюю часть строки с временем (например, "1:00PM")
+            const timePart = parts[parts.length - 1];
+            
+            return timePart; // Возвращаем только время в 12-часовом формате
+        } catch (e) {
+            console.error('Ошибка при форматировании часа:', e, hourStr);
+            return hourStr;
+        }
+    }
 
     // Функция для преобразования данных API в формат для графиков
     const transformDataToCharts = (
@@ -434,26 +486,86 @@ export const Charts = () => {
         if (tripsPerformanceDetailsData && tripsPerformanceDetailsData.length > 0) {
             console.log('Начало обработки данных для графика "איחורים / הקדמות לתקופה"');
             
-            // Создаем объект для хранения сумм по категориям
+            if (isHourlyView) {
+                // Создаем почасовой график для данного дня
+                const hourlyChartData = [
+                    ["שעה", "בזמן", "הקדמה עד 2 דקות", "הקדמה 3 דקות ומעלה", "עד 5 דקות", "6-10 דקות", "11-20 דקות", "מעל 20 דקות", "לא בוצע"]
+                ];
+                
+                // Сортируем данные по времени
+                const sortedData = [...tripsPerformanceDetailsData].sort((a, b) => {
+                    // Преобразуем форматы времени в Date для сравнения
+                    const getTimeValue = (timeStr) => {
+                        const [date, time] = timeStr.split(' ');
+                        const hours = time.includes('PM') && !time.startsWith('12') ? 
+                            parseInt(time) + 12 : parseInt(time);
+                        return hours;
+                    };
+                    return getTimeValue(a.GroupBy) - getTimeValue(b.GroupBy);
+                });
+                
+                // Добавляем данные в таблицу
+                sortedData.forEach(hourData => {
+                    const hourDisplay = formatHourDisplay(hourData.GroupBy);
+                    hourlyChartData.push([
+                        hourDisplay,
+                        hourData.OnTime,
+                        hourData.EarlyUpTo2Minutes,
+                        hourData.EarlyMoreThan2Minutes,
+                        hourData.LateUpTo5Minutes,
+                        hourData.Late6To10Minutes,
+                        hourData.Late11To20Minutes, 
+                        hourData.LateOver20Minutes,
+                        hourData.UnPerformed
+                    ]);
+                });
+                
+                const hourlyPerformanceChart = {
+                    data: hourlyChartData,
+                    options: {
+                        chartArea: { width: "80%", height: "60%" },
+                        hAxis: {
+                            title: "שעות",
+                            direction: -1,
+                            slantedText: true,
+                        },
+                        vAxis: { 
+                            title: "כמות נסיעות",
+                        },
+                        legend: { 
+                            position: "top",
+                            alignment: "center",
+                        },
+                        isStacked: true,
+                        seriesType: 'bars',
+                    },
+                    type: "Column", // Column chart is better for hourly data
+                    isOnline: false,
+                    title: "איחורים / הקדמות לפי שעות",
+                };
+                charts.push(hourlyPerformanceChart);
+            }
+            
+            // Существующий код для суммарного графика
             const delayCategories = {
-                "הקדמה 3 דקות ומעלה": 0,   // Опережение на 3+ минуты (EarlyMoreThan2Minutes)
-                "הקדמה עד 2 דקות": 0,      // Опережение до 2 минут (EarlyUpTo2Minutes)
-                "עד 5 דקות": 0,            // Вовремя или опоздание до 5 минут (OnTime + LateUpTo5Minutes)
-                "6-10 דקות": 0,            // 6-10 минут (Late6To10Minutes)
-                "11-20 דקות": 0,           // 11-20 минут (Late11To20Minutes)
-                "מעל 20 דקות": 0,          // Более 20 минут (LateOver20Minutes)
-                "לא בוצע": 0               // Не выполнено (UnPerformed)
+                "הקדמה 3 דקות ומעלה": 0,                
+                "הקדמה עד 2 דקות": 0,                
+                "עד 5 דקות": 0,                
+                "6-10 דקות": 0,                
+                "11-20 דקות": 0,                
+                "מעל 20 דקות": 0,                
+                "לא בוצע": 0
             };
             
-            // Суммируем значения по всем дням
-            tripsPerformanceDetailsData.forEach(dayData => {
-                delayCategories["הקדמה 3 דקות ומעלה"] += dayData.EarlyMoreThan2Minutes || 0;
-                delayCategories["הקדמה עד 2 דקות"] += dayData.EarlyUpTo2Minutes || 0;
-                delayCategories["עד 5 דקות"] += (dayData.OnTime || 0) + (dayData.LateUpTo5Minutes || 0);
-                delayCategories["6-10 דקות"] += dayData.Late6To10Minutes || 0;
-                delayCategories["11-20 דקות"] += dayData.Late11To20Minutes || 0;
-                delayCategories["מעל 20 דקות"] += dayData.LateOver20Minutes || 0;
-                delayCategories["לא בוצע"] += dayData.UnPerformed || 0;
+            // Суммируем значения по всем часам
+            tripsPerformanceDetailsData.forEach(hourData => {
+                delayCategories["הקדמה 3 דקות ומעלה"] += hourData.EarlyMoreThan2Minutes;
+                delayCategories["הקדמה עד 2 דקות"] += hourData.EarlyUpTo2Minutes;
+                delayCategories["עד 5 דקות"] += hourData.LateUpTo5Minutes;
+                delayCategories["6-10 דקות"] += hourData.Late6To10Minutes;
+                delayCategories["11-20 דקות"] += hourData.Late11To20Minutes;
+                delayCategories["מעל 20 דקות"] += hourData.LateOver20Minutes;
+                delayCategories["לא בוצע"] += hourData.UnPerformed;
             });
             
             const delayChartData = [

@@ -1,5 +1,7 @@
 import { useFilters } from "../../../contexts/filters-context";
 import styles from "./filters-menu-selections.module.css";
+import { Select } from "../../select/select";
+import { useState, useEffect, useRef } from "react";
 
 export const FiltersMenuSelections = () => {
     const { 
@@ -9,6 +11,37 @@ export const FiltersMenuSelections = () => {
         handleFilterFocus, 
         isLoading 
     } = useFilters();
+    
+    // Состояние для отслеживания скрытия сообщений
+    const [showErrorMessages, setShowErrorMessages] = useState({});
+    
+    // Ref для отслеживания постоянно скрытых сообщений
+    const hiddenMessagesRef = useRef({});
+    
+    // При изменении filterOptions обновляем состояние сообщений об ошибках
+    // но при этом учитываем уже скрытые пользователем сообщения
+    useEffect(() => {
+        const newErrorState = {};
+        Object.keys(filterTypeMapping).forEach(id => {
+            const apiType = filterTypeMapping[id];
+            // Показываем сообщение только если оно не было скрыто пользователем
+            newErrorState[id] = filterOptions[`${apiType}_empty`] === true && !hiddenMessagesRef.current[id];
+        });
+        setShowErrorMessages(newErrorState);
+    }, [filterOptions]);
+
+    // Обработчик клика по сообщению об ошибке - теперь добавляет сообщение
+    // в список постоянно скрытых, чтобы не показывать его снова
+    const handleErrorMessageClick = (id) => {
+        // Сохраняем в ref, что сообщение было скрыто
+        hiddenMessagesRef.current[id] = true;
+        
+        // Обновляем состояние для немедленного скрытия
+        setShowErrorMessages(prev => ({
+            ...prev,
+            [id]: false
+        }));
+    };
 
     // Эта функция вызывается для отображения правильного значения из объекта опций
     const getDisplayValue = (optionObj, id) => {
@@ -66,6 +99,53 @@ export const FiltersMenuSelections = () => {
         return String(value || '');
     };
 
+    // Функция для получения массива элементов для селекта
+    const getSelectItems = (id) => {
+        const options = filterOptions[filterTypeMapping[id]] || [];
+        const result = options.map(option => getDisplayValue(option, id));
+        console.log(`getSelectItems для ${id}:`, result);
+        return result;
+    };
+
+    // Функция для создания Set с активным элементом
+    const getActiveFilters = (id) => {
+        if (!selectedFilters[id]) return new Set();
+        
+        const options = filterOptions[filterTypeMapping[id]] || [];
+        for (const option of options) {
+            if (getOptionValue(option, id) === selectedFilters[id]) {
+                return new Set([getDisplayValue(option, id)]);
+            }
+        }
+        
+        return new Set();
+    };
+
+    // Функция для проверки наличия и загрузки данных фильтра при открытии селекта
+    const handleSelectOpen = (id) => {
+        if (!filterOptions[filterTypeMapping[id]]) {
+            handleFilterFocus(filterTypeMapping[id]);
+        }
+    };
+
+    // Обработчик клика для изменения фильтра
+    const handleSelectClick = (id) => (value) => {
+        // Сначала загружаем данные, если нужно
+        if (!filterOptions[filterTypeMapping[id]]) {
+            handleFilterFocus(filterTypeMapping[id]);
+            return;
+        }
+        
+        const options = filterOptions[filterTypeMapping[id]] || [];
+        for (const option of options) {
+            if (getDisplayValue(option, id) === value) {
+                // Нашли совпадение - передаем значение в обработчик фильтров
+                handleFilterChange({ target: { id, value: getOptionValue(option, id) } });
+                break;
+            }
+        }
+    };
+
     // Конфигурация для соответствия ID фильтра и типа запроса API
     const filterTypeMapping = {
         "Agency": "Agency",
@@ -89,29 +169,29 @@ export const FiltersMenuSelections = () => {
                 { id: "linegroup", label: "קבוצת קווים" }
             ].map(({ id, label }) => (
                 <div key={id} className={styles.selection}>
-                    <label htmlFor={id}>{label}:</label>
-                    <select 
-                        id={id} 
-                        value={selectedFilters[id] || ""} 
-                        onChange={handleFilterChange}
-                        onFocus={() => handleFilterFocus(filterTypeMapping[id])}
-                        disabled={isLoading[filterTypeMapping[id]]}
-                    >
-                        <option value=""></option>
-                        {filterOptions[filterTypeMapping[id]]?.map((option, index) => (
-                            <option 
-                                key={`${id}-${index}`} 
-                                value={getOptionValue(option, id)}
-                            >
-                                {getDisplayValue(option, id)}
-                            </option>
-                        ))}
-                    </select>
-                    {isLoading[filterTypeMapping[id]] && 
-                        <div className={styles.loadingIndicator}>
-                            טוען נתונים...
+                    {isLoading[filterTypeMapping[id]] ? (
+                        <div className={styles.loadingIndicator}>טוען נתונים...</div>
+                    ) : id === "linegroup" && showErrorMessages[id] ? (
+                        <div 
+                            className={styles.noGroupsMessage}
+                            onClick={() => handleErrorMessageClick(id)}
+                        >
+                            אין קבוצות קווים זמינות למשתמש זה
                         </div>
-                    }
+                    ) : (
+                        <Select
+                            name={label}
+                            items={getSelectItems(id)}
+                            onClick={handleSelectClick(id)}
+                            onOpen={() => handleSelectOpen(id)}
+                            activeFilters={getActiveFilters(id)}
+                            type="radio"
+                            thereIsSearch={true}
+                            style="round"
+                            size=""
+                            thereIsAgree={false}
+                        />
+                    )}
                 </div>
             ))}
         </div>
