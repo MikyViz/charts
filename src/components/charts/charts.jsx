@@ -216,9 +216,7 @@ export const Charts = () => {
             // Для почасового режима обрабатываем формат "Apr 8 2025 1:00PM"
             if (isHourlyView && (dayStr.includes('AM') || dayStr.includes('PM'))) {
                 const parts = dayStr.split(' ');
-                // Берем только время
-                const timePart = parts[parts.length - 1]; // "1:00PM"
-                return timePart; // Возвращаем только время без преобразования
+                return parts[parts.length - 1]; // Возвращаем только время "1:00PM"
             } 
             // Для обычного формата YYYY-MM-DD
             else if (dayStr.includes('-')) {
@@ -496,19 +494,24 @@ export const Charts = () => {
                 const sortedData = [...tripsPerformanceDetailsData].sort((a, b) => {
                     // Преобразуем форматы времени в Date для сравнения
                     const getTimeValue = (timeStr) => {
-                        const [date, time] = timeStr.split(' ');
-                        const hours = time.includes('PM') && !time.startsWith('12') ? 
-                            parseInt(time) + 12 : parseInt(time);
-                        return hours;
+                        const parts = timeStr.split(' ');
+                        const timePart = parts[parts.length - 1]; // "1:00PM"
+                        const isPM = timePart.includes('PM');
+                        const hourMin = timePart.split(':');
+                        let hour = parseInt(hourMin[0]);
+                        if (isPM && hour !== 12) hour += 12;
+                        if (!isPM && hour === 12) hour = 0;
+                        return hour;
                     };
                     return getTimeValue(a.GroupBy) - getTimeValue(b.GroupBy);
                 });
                 
-                // Добавляем данные в таблицу
+                // Добавляем данные в таблицу, используя formatHourDisplay
                 sortedData.forEach(hourData => {
-                    const hourDisplay = formatHourDisplay(hourData.GroupBy);
+                    const timeOnly = formatHourDisplay(hourData.GroupBy);
+                    
                     hourlyChartData.push([
-                        hourDisplay,
+                        timeOnly,  // Используем только время, без даты
                         hourData.OnTime,
                         hourData.EarlyUpTo2Minutes,
                         hourData.EarlyMoreThan2Minutes,

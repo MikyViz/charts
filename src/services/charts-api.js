@@ -67,6 +67,8 @@ export const fetchLinePerformanceDetails = async (filters, authData) => {
 
 export const fetchPlannedChanges = async (filters, authData) => {
     const params = createParams(filters);
+    const GroupBy = params.GroupBy==="HOUR" ? "DAY" : params.GroupBy;
+    params.GroupBy = GroupBy;
     return fetchChartData('TripsPlannedChanges', params, authData);
 };
 
