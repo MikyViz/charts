@@ -38,16 +38,15 @@
     height: 2px;
     background: #7F879E;
     position: absolute;
-    width: calc(100%);
+    width: calc(35%);
     top: 50%;
-    inset-inline-start: 50%;
+    left: 50%;
     transform: translate(-50%, -50%) rotate(45deg);
-    transition: width .1s ease, inset-inline-start .1s ease, top .1s ease;
 }
 
 .eye.active::before {
     top: 16%;
-    inset-inline-start: 16%;
+    left: 16%;
     width: 0;
 }
 

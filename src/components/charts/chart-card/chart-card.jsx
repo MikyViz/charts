@@ -8,10 +8,11 @@ import classNames from "classnames";
 import ExcelJS from "exceljs";
 
 const chartsTypes = {
-    Column: "ColumnChart",
-    Bar: "BarChart",
-    Area: "PieChart",
-    Line: "LineChart",
+    Column: { type: "ColumnChart", isStacked: false },
+    "Stacked Column": { type: "ColumnChart", isStacked: true },
+    Bar: { type: "BarChart", isStacked: false },
+    Area: { type: "PieChart", isStacked: false },
+    Line: { type: "LineChart", isStacked: false },
 };
 
 export const ChartCard = ({ chart }) => {
@@ -45,7 +46,9 @@ export const ChartCard = ({ chart }) => {
         const buffer = await workbook.xlsx.writeBuffer();
 
         // Создаём Blob и инициируем скачивание
-        const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+        const blob = new Blob([buffer], {
+            type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        });
         const link = document.createElement("a");
         link.href = URL.createObjectURL(blob);
         link.download = `${title || "chart-data"}.xlsx`;
@@ -82,7 +85,7 @@ export const ChartCard = ({ chart }) => {
                         )}
                         <Select
                             name="תצוגת נתונים"
-                            items={["Column", "Bar", "Line", "Area"]}
+                            items={["Column", "Bar", "Line", "Area", "Stacked Column"]}
                             style="round"
                             size="small"
                             type="radio"
@@ -99,17 +102,19 @@ export const ChartCard = ({ chart }) => {
                     </button>
                 </div>
             </div>
-            <Chart
-                chartType={chartsTypes[chartsType]}
-                width="100%"
-                height="400px"
-                data={data}
-                className={styles.mainChart}
-                options={options}
-                getChartWrapper={(chartWrapper) => {
-                    chartRef.current = chartWrapper;
-                }}
-            />
+            <div className={styles.chartContainer}>
+                <Chart
+                    chartType={chartsTypes[chartsType].type}
+                    width="100%"
+                    height="100%"
+                    data={data}
+                    className={styles.mainChart}
+                    options={{...options, isStacked:chartsTypes[chartsType].isStacked}}
+                    getChartWrapper={(chartWrapper) => {
+                        chartRef.current = chartWrapper;
+                    }}
+                />
+            </div>
         </div>
     );
 };

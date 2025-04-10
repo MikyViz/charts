@@ -41,3 +41,21 @@
         width: 100%;
     }
 }
+
+@media (max-width: 700px) {
+    .dateInput input {
+        font: 400 12px/1 var(--font);
+        width: 120px;
+    }
+}
+
+@media (max-width: 576px) {
+    .dateInput {
+        padding: 8px 12px;
+    }
+
+    .dateInput input {
+        font: 400 10px/1 var(--font);
+        width: 100px;
+    }
+}

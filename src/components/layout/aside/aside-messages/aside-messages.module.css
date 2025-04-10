@@ -30,3 +30,9 @@
     padding-inline: 19px;
   }
 }
+
+@media (max-width: 576px) {
+  .title {
+    font-size: 16px;
+  }
+}

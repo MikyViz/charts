@@ -1,10 +1,9 @@
 import { Link } from "react-router-dom";
 import logo from "../../../img/לוגו.png";
-import { Button } from "../../button/button";
 import { Help } from "../../../svg/help";
 import styles from "./header.module.css";
 
-export const Header = ({ thereAreActivities = true }) => {
+export const Header = ({ thereAreActivities = true, handlerHelpModal }) => {
     return (
         <div className={styles.header}>
             <Link className={styles.home} to={"/"}>
@@ -12,14 +11,22 @@ export const Header = ({ thereAreActivities = true }) => {
             </Link>
             {thereAreActivities && (
                 <div className={styles.active}>
-                    <Button color={"grey"}>
+                    <button
+                        onClick={() => {
+                            handlerHelpModal(true);
+                        }}
+                        className={styles.helpButton}
+                    >
                         <span className={styles.btnText}>תמיכה</span>
                         <span className={styles.svg}>
                             <Help />
                         </span>
-                    </Button>
+                    </button>
                     <span className={styles.user}>שלום, יענקי!</span>
-                    <span className={styles.status}>מחובר</span>
+                    <div className={styles.statusContainer}>
+                        <span className={styles.statusRound}></span>
+                        <span className={styles.status}>מחובר</span>
+                    </div>
                 </div>
             )}
         </div>
