@@ -99,9 +99,6 @@
 }
 
 @media (max-width: 630px) {
-    .top {
-        display: flex;
-    }
 
     .filters {
         grid-row: 2/3;
@@ -117,10 +114,6 @@
 
     .buttonText {
         display: none;
-    }
-
-    .buttonText {
-        display: inline;
     }
 }
 

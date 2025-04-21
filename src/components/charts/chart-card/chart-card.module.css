@@ -16,16 +16,9 @@
 }
 
 .data .head {
-    /* flex-direction: column; */
     align-items: center;
     gap: 10px;
 }
-
-/* .data .download {
-    position: absolute;
-    top: 15px;
-    right: 15px;
-} */
 
 .title {
     font: 700 24px/1 var(--font);
@@ -68,6 +61,10 @@
     width: 100% !important;
 }
 
+.chartContainer {
+    height: 400px;
+}
+
 @media (max-width: 991px) {
     .chart {
         padding: 15px;
@@ -76,8 +73,6 @@
 
 @media (max-width: 921px) {
     .head {
-        /* flex-direction: column; */
-        /* align-items: center; */
         gap: 10px;
     }
 
@@ -89,13 +84,25 @@
         flex-direction: column;
 
     }
-
-    /* .download { */
-
 }
 
 @media (max-width: 576px) {
     .title {
         font-size: 18px;
+    }
+
+    .chartContainer {
+        height: 250px;
+    }
+
+    .download {
+        height: 32px;
+        width: 32px;
+        min-width: auto;
+    }
+
+    .svg {
+        height: 24px;
+        width: 24px;
     }
 }
